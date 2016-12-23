@@ -19,7 +19,6 @@ try:
     args = Args()
 except ImportError:
     from clint import args
-from clint.eng import join as eng_join
 from clint.textui import colored, puts, columns, indent
 
 from .core import __version__
@@ -38,6 +37,7 @@ def black(s):
 # Dispatch
 # --------
 
+
 def main():
     """Primary Legit command dispatch."""
 
@@ -51,11 +51,15 @@ def main():
 
     elif args.contains(('-h', '--help')):
         display_help()
-        sys.exit(1)
+        sys.exit()
 
     elif args.contains(('-v', '--version')):
         display_version()
-        sys.exit(1)
+        sys.exit()
+
+    elif len(args) == 0:
+        display_help()
+        sys.exit()
 
     else:
         if settings.git_transparency:
@@ -106,14 +110,22 @@ def switch_to(branch):
 
     return cmd_switch(switch_args)
 
+
 def fuzzy_match_branch(branch):
-    if not branch: return False
+    if not branch:
+        return False
 
     all_branches = get_branch_names()
     if branch in all_branches:
         return branch
 
+<<<<<<< HEAD
     def branch_fuzzy_match(b): return b.startswith(branch)
+=======
+    def branch_fuzzy_match(b):
+        return b.startswith(branch)
+
+>>>>>>> upstream/master
     possible_branches = list(filter(branch_fuzzy_match, all_branches))
 
     if len(possible_branches) == 1:
@@ -124,6 +136,7 @@ def fuzzy_match_branch(branch):
 # --------
 # Commands
 # --------
+
 
 def cmd_switch(args):
     """Legit Switch command."""
@@ -261,6 +274,19 @@ def cmd_sprout(args):
         colored.yellow(off_branch), colored.yellow(new_branch)),
         off_branch, new_branch)
 
+def cmd_undo(args):
+    """Makes last commit not exist.
+    --hard for """
+
+    is_hard = args.get(0) == '--hard'
+
+    if is_hard:
+        repo.git.reset('--hard HEAD^')
+    else:
+        repo.git.reset('HEAD^')
+
+    print('Last commit removed from history.')
+
 
 def cmd_graft(args):
     """Merges an unpublished branch into the given branch, then deletes it."""
@@ -271,7 +297,7 @@ def cmd_graft(args):
     if not branch:
         print('Please specify a branch to graft:')
         display_available_branches()
-        sys.exit()
+        sys.exit(64)  # EX_USAGE
 
     if not into_branch:
         into_branch = get_current_branch_name()
@@ -336,7 +362,7 @@ def cmd_unpublish(args):
     if not branch:
         print('Please specify a branch to unpublish:')
         display_available_branches()
-        sys.exit()
+        sys.exit(64)  # EX_USAGE
 
     branch_names = get_branch_names(local=False)
 
@@ -358,7 +384,7 @@ def cmd_harvest(args):
     if not from_branch:
         print('Please specify a branch to harvest commits from:')
         display_available_branches()
-        sys.exit()
+        sys.exit(64)  # EX_USAGE
 
     if to_branch:
         original_branch = get_current_branch_name()
@@ -402,12 +428,10 @@ def cmd_settings(args):
 
     path = clint.resources.user.open('config.ini').name
 
-
     print('Legit Settings:\n')
 
     for (option, _, description) in settings.config_defaults:
         print(columns([colored.yellow(option), 25], [description, None]))
-
 
     print('\nSee {0} for more details.'.format(settings.config_url))
 
@@ -440,6 +464,7 @@ def cmd_install(args):
         'sync',
         'switch',
         'resync',
+        'undo'
     ]
 
     print('The following git aliases have been installed:\n')
@@ -457,18 +482,21 @@ def cmd_help(args):
     command = args.get(0)
     help(command)
 
+
 # -----
 # Views
 # -----
 
+
 def help(command, to_stderr=False):
-    if command == None:
+    if command is None:
         command = 'help'
 
     cmd = Command.lookup(command)
     usage = cmd.usage or ''
-    help = cmd.help or ''
-    help_text = '%s\n\n%s' % (usage, help)
+    alias = 'alias: %s\n\n' % ', '.join(cmd.short) if cmd.short else ''
+    help = columns([cmd.help, 60]) or ''
+    help_text = '%s\n\n%s%s' % (usage, alias, help)
     if to_stderr:
         show_error(help_text)
     else:
@@ -534,7 +562,8 @@ def display_info():
     puts('Usage: {0}\n'.format(colored.blue('legit <command>')))
     puts('Commands:\n')
     commands = Command.all_commands()
-    for command in sort_with_similarity(commands, key=lambda x:x.name):
+    print commands
+    for command in sort_with_similarity(commands, key=lambda x: x.name):
         usage = command.usage or command.name
         detail = command.help or ''
         puts(colored.green(usage))
@@ -557,7 +586,6 @@ def display_help():
 
 def display_version():
     """Displays Legit version/release."""
-
 
     puts('{0} v{1}'.format(
         colored.yellow('legit'),
@@ -601,8 +629,7 @@ class Command(object):
 
     @classmethod
     def all_commands(klass):
-        return sorted(klass.COMMANDS.values(),
-                      key=lambda cmd: cmd.name)
+        return sorted(klass.COMMANDS.values(), key=lambda cmd: cmd.name)
 
     def __init__(self, name=None, short=None, fn=None, usage=None, help=None):
         self.name = name
@@ -698,7 +725,7 @@ def_cmd(
     fn=cmd_resync,
     usage='resync <upstream-branch>',
     help=('Re-synchronize current branch with specified upstream branch. '
-          "Defaults upstream branch is 'master'. "
+          "Default upstream branch is 'master'. "
           'Fetch, Auto-Merge/Rebase for upstream, '
           'Fetch, Auto-Merge/Rebase, Push, and Unstash for current branch.'))
 
@@ -708,3 +735,10 @@ def_cmd(
     fn=cmd_unpublish,
     usage='unpublish <branch>',
     help='Removes specified branch from the remote.')
+
+def_cmd(
+    name='undo',
+    short=['undo'],
+    fn=cmd_undo,
+    usage='undo',
+    help='Removes the last commit from history.')
