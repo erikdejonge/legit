@@ -10,7 +10,7 @@ from codecs import open
 
 APP_NAME = 'legit'
 APP_SCRIPT = './legit_r'
-VERSION = '0.2.0'
+VERSION = '0.6.0'
 
 required = [
     'clint>=0.4.1',
